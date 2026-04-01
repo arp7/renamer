@@ -1,12 +1,12 @@
 # renamer
 
-Rename files and directories by applying a regex find-and-replace to their names.
+Rename files and directories by applying regex find-and-replace rules to their names.
 
 ## Usage
 
 **Python**
 ```
-python renamer.py --dir <dir> --pattern <regex> [--to <replacement>] [-r] [-n]
+python renamer.py --dir <dir> (--pattern <regex> [--to <replacement>] … | --normalize) [-r] [-n]
 ```
 
 **PowerShell**
@@ -17,12 +17,29 @@ python renamer.py --dir <dir> --pattern <regex> [--to <replacement>] [-r] [-n]
 | Flag | Description |
 |---|---|
 | `--dir` / `-Dir` | Directory to operate on |
-| `--pattern` / `-Pattern` | Regex pattern to match in file/directory names |
-| `--to` / `-To` | Replacement string (default: `""`, deletes the match) |
-| `-r` / `-Recursive` | Recurse into subdirectories (bottom-up) |
+| `--pattern` / `-Pattern` | Regex pattern to match in file/directory names (Python: repeatable) |
+| `--to` / `-To` | Replacement for the preceding `--pattern` (default: `""`, deletes the match) |
+| `--normalize` | Normalize filenames: non-printable ASCII → `-`, space-like chars → space, runs of spaces → one space. Mutually exclusive with `--pattern`. |
+| `-r` / `-Recursive` | Recurse into subdirectories (bottom-up, so children are renamed before parents) |
 | `-n` / `-DryRun` | Preview changes without renaming anything |
 
 > **Backreferences:** Python uses `\1`, `\2`, … — PowerShell uses `$1`, `$2`, …
+
+> **Collision avoidance:** if a rename would overwrite an existing file, a `_0001`, `_0002`, … suffix is appended automatically to find a free name.
+
+## Multiple patterns (Python only)
+
+`--pattern` / `--to` pairs can be repeated and are applied left-to-right in sequence, each operating on the result of the previous step:
+
+```
+python renamer.py --dir . --pattern "^IMG_" --to "photo_" --pattern "\.jpeg$" --to ".jpg"
+```
+
+If `--to` is omitted for a `--pattern`, the match is deleted (equivalent to `--to ""`):
+
+```
+python renamer.py --dir . --pattern "\(copy\)" --pattern "  " --to " "
+```
 
 ## Examples
 
@@ -42,6 +59,16 @@ Remove `.bak` extension everywhere in a tree:
 ```
 python renamer.py --dir . --pattern "\.bak$" -r
 .\renamer.ps1  -Dir  .  -Pattern "\.bak$"  -Recursive
+```
+
+Normalize filenames downloaded from the web (clean up spaces and control characters):
+```
+python renamer.py --dir ~/downloads --normalize -r
+```
+
+Chain two substitutions — first convert underscores to spaces, then title-case separators:
+```
+python renamer.py --dir . --pattern "_" --to " " --pattern "^\w" --to ...
 ```
 
 ## Tests
